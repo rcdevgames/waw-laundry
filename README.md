@@ -35,10 +35,12 @@ Aplikasi Point of Sale (POS) lengkap untuk usaha laundry dengan fitur manajemen 
 - **Pengeluaran:** Catat pengeluaran operasional
 - **Profil:** Info bisnis (nama, alamat, no HP)
 - **Printer:** Setup printer thermal Bluetooth
+- **Backup & Restore:** Backup database ke file, restore dengan master password verification
 - **Keamanan:** PIN untuk akses owner
 
 ### 🔐 Keamanan
 - PIN unlock untuk akses Owner Dashboard
+- Master password untuk backup/restore verification
 - Enkripsi database dengan SQLCipher
 - Auto-lock setelah keluar
 
@@ -54,20 +56,25 @@ Aplikasi Point of Sale (POS) lengkap untuk usaha laundry dengan fitur manajemen 
 | **Navigation** | Jetpack Navigation Compose |
 | **PDF** | Android PdfDocument API |
 | **Printer** | Bluetooth Thermal Printer |
-| **Cloud Sync** | Supabase (optional) |
+| **Backup** | Local file-based backup/restore |
 
 ## 📦 APK Size
 
 | Variant | Size |
 |---------|------|
-| armeabi-v7a | ~8MB (signed) |
-| arm64-v8a | ~9MB (signed) |
-| Target | < 10MB ✅ |
+| armeabi-v7a | ~27MB (signed) |
+| arm64-v8a | ~28MB (signed) |
+
+APK breakdown:
+- **classes.dex**: ~21MB (Compose UI, AndroidX libraries)
+- **classes2.dex**: ~3.7MB (App code)
+- **libsqlcipher.so**: ~3.6MB (Encrypted database)
 
 Optimized untuk:
 - ✅ HP spek kentang (RAM 2GB+)
 - ✅ Jaringan lambat
 - ✅ Offline-first (tanpa internet tetap jalan)
+- ✅ Backup/restore lokal tanpa cloud dependency
 
 ## 🚀 Quick Start
 
@@ -147,8 +154,7 @@ KEY_PASSWORD=your_key_password
 ```
 app/src/main/java/net/rcdevgames/wawlaundry/
 ├── data/
-│   ├── local/              # Room Database, Entities, DAOs
-│   ├── remote/             # Supabase configuration
+│   ├── local/              # Room Database, Entities, DAOs, SecurityPrefs
 │   └── domain/
 │       ├── repository/     # Data repositories
 │       └── printer/         # Thermal printer service
@@ -163,7 +169,7 @@ app/src/main/java/net/rcdevgames/wawlaundry/
 │   ├── navigation/         # Navigation graph
 │   └── theme/              # Compose theming
 ├── util/                   # Utilities (PDF, WhatsApp, Formatter)
-└── worker/                 # Background sync worker
+└── worker/                 # Background worker (disabled)
 ```
 
 ## 🎨 Screens
@@ -182,7 +188,7 @@ app/src/main/java/net/rcdevgames/wawlaundry/
 - **Expenses:** Track operational expenses
 - **Store:** Business profile settings
 - **Printer:** Thermal printer setup
-- **Data:** Cloud sync & backup
+- **Data:** Local backup/restore with master password verification
 
 ## 🔧 Performance Optimizations
 

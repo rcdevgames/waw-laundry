@@ -1,5 +1,7 @@
 package net.rcdevgames.wawlaundry.ui.owner.data
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,9 +11,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +34,24 @@ fun OwnerDataScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Backup file picker launcher (save)
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.performBackup(uri)
+        }
+    }
+
+    // Restore file picker launcher (open)
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onRestoreFileSelected(uri)
+        }
+    }
 
     LaunchedEffect(state.isResetSuccess) {
         if (state.isResetSuccess) {
@@ -81,7 +101,7 @@ fun OwnerDataScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    "Manajemen Cloud",
+                    "Backup & Restore Lokal",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -91,19 +111,25 @@ fun OwnerDataScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { viewModel.onSyncDataClick() }
+                        .clickable {
+                            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+                                .format(java.util.Date())
+                            viewModel.onBackupDataClick {
+                                backupLauncher.launch("waw_laundry_backup_$timestamp.db")
+                            }
+                        }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CloudUpload,
-                        contentDescription = "Sync",
+                        imageVector = Icons.Default.Save,
+                        contentDescription = "Backup",
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Backup Data Lokal ke Cloud", fontWeight = FontWeight.Bold)
-                        Text("Mencadangkan data transaksi, pelanggan, layanan ke server", style = MaterialTheme.typography.bodySmall)
+                        Text("Backup Data ke File", fontWeight = FontWeight.Bold)
+                        Text("Simpan database ke file untuk cadangan lokal", style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -112,19 +138,19 @@ fun OwnerDataScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { viewModel.onRestoreDataClick() }
+                        .clickable { viewModel.onRestoreDataClick { restoreLauncher.launch(arrayOf("*/*")) } }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CloudDownload,
+                        imageVector = Icons.Default.Restore,
                         contentDescription = "Restore",
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Ambil Data dari Cloud", fontWeight = FontWeight.Bold)
-                        Text("Mengunduh data cadangan terakhir dari server", style = MaterialTheme.typography.bodySmall)
+                        Text("Restore dari File Backup", fontWeight = FontWeight.Bold)
+                        Text("Pulihkan database dari file backup (memerlukan master password)", style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -161,7 +187,7 @@ fun OwnerDataScreen(
                 }
             }
 
-            if (state.isSyncing || state.isResetting) {
+            if (state.isSyncing || state.isResetting || state.isBackingUp || state.isRestoring) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -211,6 +237,48 @@ fun OwnerDataScreen(
             },
             dismissButton = {
                 TextButton(onClick = viewModel::onResetCancel) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    // Restore password verification dialog
+    if (state.showRestoreDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::onRestoreCancel,
+            title = {
+                Text(
+                    text = "Verifikasi Master Password",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text("Untuk keamanan, masukkan master password untuk memulihkan data dari backup.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = state.restorePasswordInput,
+                        onValueChange = viewModel::onRestorePasswordChange,
+                        label = { Text("Master Password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = state.restorePasswordError,
+                        supportingText = { if (state.restorePasswordError) Text("Master Password Salah!") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::confirmRestore
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onRestoreCancel) {
                     Text("Batal")
                 }
             }

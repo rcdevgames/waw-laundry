@@ -6,17 +6,20 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.first
 import net.rcdevgames.wawlaundry.data.local.entity.*
 import net.rcdevgames.wawlaundry.domain.repository.*
+
+// NOTE: Cloud sync disabled - using local backup only with master password verification
+// Supabase dependencies removed to reduce APK size
+// To re-enable cloud sync: restore Supabase dependencies in build.gradle.kts
+// and uncomment the SupabaseClient code below
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val supabaseClient: SupabaseClient,
+    // private val supabaseClient: SupabaseClient,  // DISABLED
     private val profileRepository: ProfileRepository,
     private val serviceRepository: ServiceRepository,
     private val customerRepository: CustomerRepository,
@@ -27,17 +30,8 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            // NOTE: In a production app, we should check if the user is authenticated 
-            // inside Supabase before proceeding to sync.
-            
-            syncProfiles()
-            syncServices()
-            syncCustomers()
-            syncPromos()
-            syncExpenses()
-            syncOrders()
-            // Pull logic would go here as well
-
+            // Cloud sync disabled - using local backup only
+            // Sync functionality disabled to remove Supabase dependency
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -45,9 +39,12 @@ class SyncWorker @AssistedInject constructor(
         }
     }
 
+    /*
+    // CLOUD SYNC FUNCTIONS (DISABLED)
+    // Uncomment to re-enable cloud sync with Supabase
+
     private suspend fun syncProfiles() {
-        val unsynced = profileRepository.getProfile().first() 
-        // Real implementation should check unsynced flags, but profile is a singleton here.
+        val unsynced = profileRepository.getProfile().first()
         if (unsynced != null && !unsynced.isSynced) {
             supabaseClient.postgrest["profiles"].upsert(unsynced)
             profileRepository.saveProfile(unsynced.copy(isSynced = true))
@@ -58,8 +55,8 @@ class SyncWorker @AssistedInject constructor(
         val unsynced = serviceRepository.getUnsyncedServices()
         if (unsynced.isNotEmpty()) {
             supabaseClient.postgrest["services"].upsert(unsynced)
-            unsynced.forEach { 
-                serviceRepository.saveService(it.copy(isSynced = true)) 
+            unsynced.forEach {
+                serviceRepository.saveService(it.copy(isSynced = true))
             }
         }
     }
@@ -68,8 +65,8 @@ class SyncWorker @AssistedInject constructor(
         val unsynced = customerRepository.getUnsyncedCustomers()
         if (unsynced.isNotEmpty()) {
             supabaseClient.postgrest["customers"].upsert(unsynced)
-            unsynced.forEach { 
-                customerRepository.saveCustomer(it.copy(isSynced = true)) 
+            unsynced.forEach {
+                customerRepository.saveCustomer(it.copy(isSynced = true))
             }
         }
     }
@@ -91,24 +88,25 @@ class SyncWorker @AssistedInject constructor(
             }
         }
     }
-    
+
     private suspend fun syncPromos() {
        val unsynced = promoRepository.getUnsyncedPromos()
         if (unsynced.isNotEmpty()) {
             supabaseClient.postgrest["promos"].upsert(unsynced)
-            unsynced.forEach { 
-                promoRepository.savePromo(it.copy(isSynced = true)) 
+            unsynced.forEach {
+                promoRepository.savePromo(it.copy(isSynced = true))
             }
         }
     }
-    
+
      private suspend fun syncExpenses() {
        val unsynced = expenseRepository.getUnsyncedExpenses()
         if (unsynced.isNotEmpty()) {
             supabaseClient.postgrest["expenses"].upsert(unsynced)
-            unsynced.forEach { 
-                expenseRepository.saveExpense(it.copy(isSynced = true)) 
+            unsynced.forEach {
+                expenseRepository.saveExpense(it.copy(isSynced = true))
             }
         }
     }
+    */
 }

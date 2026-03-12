@@ -1,8 +1,11 @@
 package net.rcdevgames.wawlaundry.ui.owner.data
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +13,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.rcdevgames.wawlaundry.data.local.AppDatabase
 import net.rcdevgames.wawlaundry.data.local.SecurityPrefs
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 
 data class OwnerDataState(
@@ -20,11 +28,19 @@ data class OwnerDataState(
     val isResetSuccess: Boolean = false,
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // Local backup/restore state
+    val showRestoreDialog: Boolean = false,
+    val restorePasswordInput: String = "",
+    val restorePasswordError: Boolean = false,
+    val restoreUri: Uri? = null,
+    val isBackingUp: Boolean = false,
+    val isRestoring: Boolean = false
 )
 
 @HiltViewModel
 class OwnerDataViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val database: AppDatabase,
     private val securityPrefs: SecurityPrefs
 ) : ViewModel() {
@@ -32,22 +48,102 @@ class OwnerDataViewModel @Inject constructor(
     private val _state = MutableStateFlow(OwnerDataState())
     val state: StateFlow<OwnerDataState> = _state.asStateFlow()
 
-    fun onSyncDataClick() {
-        // Implementasi sync placeholder untuk sementara, karena belum ada logic Supabase penuh untuk Push/Pull semua tabel manual
+    // === LOCAL BACKUP (replaces cloud sync) ===
+    // Cloud sync has been disabled to reduce APK size
+
+    fun onBackupDataClick(onFilePicker: () -> Unit) {
+        // Trigger file picker to choose where to save backup
+        onFilePicker()
+    }
+
+    fun performBackup(uri: Uri) {
         viewModelScope.launch {
-            _state.update { it.copy(isSyncing = true, syncMessage = null) }
-            kotlinx.coroutines.delay(1500)
-            _state.update { it.copy(isSyncing = false, syncMessage = "Sinkronisasi ke Cloud Berhasil!") }
-            
-            // Note: In real implementation, call sync service here.
+            try {
+                _state.update { it.copy(isBackingUp = true, syncMessage = null, errorMessage = null) }
+
+                // Export database to selected location
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    // Get the database file
+                    val dbFile = context.getDatabasePath("waw_laundry_secure.db")
+
+                    if (dbFile.exists()) {
+                        FileInputStream(dbFile).use { input ->
+                            input.copyTo(output)
+                        }
+                        _state.update { it.copy(isBackingUp = false, syncMessage = "Backup berhasil disimpan!") }
+                    } else {
+                        _state.update { it.copy(isBackingUp = false, errorMessage = "Database tidak ditemukan!") }
+                    }
+                } ?: run {
+                    _state.update { it.copy(isBackingUp = false, errorMessage = "Gagal membuka file output!") }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isBackingUp = false, errorMessage = "Gagal backup: ${e.message}") }
+            }
         }
     }
 
-    fun onRestoreDataClick() {
+    fun onRestoreDataClick(onFilePicker: () -> Unit) {
+        // Trigger file picker to select backup file
+        onFilePicker()
+    }
+
+    fun onRestoreFileSelected(uri: Uri) {
+        // Show password dialog after file is selected
+        _state.update { it.copy(showRestoreDialog = true, restoreUri = uri, restorePasswordInput = "", restorePasswordError = false) }
+    }
+
+    fun onRestorePasswordChange(password: String) {
+        _state.update { it.copy(restorePasswordInput = password, restorePasswordError = false) }
+    }
+
+    fun onRestoreCancel() {
+        _state.update { it.copy(showRestoreDialog = false, restoreUri = null, restorePasswordInput = "") }
+    }
+
+    fun confirmRestore() {
+        val inputPassword = _state.value.restorePasswordInput
+        val savedPassword = securityPrefs.getMasterPassword()
+
+        // Verify master password before restoring
+        if (inputPassword != savedPassword) {
+            _state.update { it.copy(restorePasswordError = true) }
+            return
+        }
+
+        // Proceed with restore
+        val uri = _state.value.restoreUri
+        if (uri == null) {
+            _state.update { it.copy(showRestoreDialog = false, errorMessage = "File backup tidak dipilih!") }
+            return
+        }
+
         viewModelScope.launch {
-            _state.update { it.copy(isSyncing = true, syncMessage = null) }
-            kotlinx.coroutines.delay(1500)
-            _state.update { it.copy(isSyncing = false, syncMessage = "Ambil Data dari Cloud Berhasil!") }
+            try {
+                _state.update { it.copy(showRestoreDialog = false, isRestoring = true, errorMessage = null) }
+
+                // Close all database connections
+                database.close()
+
+                // Import database from selected location
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    val dbFile = context.getDatabasePath("waw_laundry_secure.db")
+
+                    // Ensure parent directory exists
+                    dbFile.parentFile?.mkdirs()
+
+                    FileOutputStream(dbFile).use { output ->
+                        input.copyTo(output)
+                    }
+
+                    // Database will be auto-reopened on next access
+                    _state.update { it.copy(isRestoring = false, syncMessage = "Restore berhasil! Aplikasi akan dimuat ulang.", restoreUri = null) }
+                } ?: run {
+                    _state.update { it.copy(isRestoring = false, errorMessage = "Gagal membuka file input!", restoreUri = null) }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isRestoring = false, errorMessage = "Gagal restore: ${e.message}", restoreUri = null) }
+            }
         }
     }
 

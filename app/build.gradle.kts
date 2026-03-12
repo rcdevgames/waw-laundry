@@ -112,6 +112,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
+
+            // ProGuard/R8 configuration
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -173,13 +175,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // Supabase
-    implementation(platform(libs.supabase.bom))
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.auth)
-    implementation(libs.supabase.realtime)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.android)
+    // NOTE: Supabase removed - using local backup only with master password verification
+    // Cloud sync features (CloudSyncSetupScreen, SyncWorker) are disabled
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)

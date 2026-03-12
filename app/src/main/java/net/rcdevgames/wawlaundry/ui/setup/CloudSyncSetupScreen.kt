@@ -26,13 +26,6 @@ fun CloudSyncSetupScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(state.isLoginSuccess) {
-        if (state.isLoginSuccess) {
-            onLoginSuccess()
-        }
-    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -69,12 +62,19 @@ fun CloudSyncSetupScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Login Supabase Account",
+                text = "Sinkronisasi Cloud Dinonaktifkan",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Login untuk mencadangkan data Anda agar aman dan dapat disinkronisasi ke Cloud. Anda juga bisa menggunakan mode Offline tanpa login.",
+                text = "Untuk mengurangi ukuran aplikasi, fitur sinkronisasi cloud dinonaktifkan.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Text(
+                text = "Gunakan fitur Backup/Restore untuk menyimpan data Anda secara lokal dengan aman (dilindungi dengan master password).",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),
@@ -83,62 +83,23 @@ fun CloudSyncSetupScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            OutlinedTextField(
-                value = state.email,
-                onValueChange = viewModel::onEmailChange,
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = image, contentDescription = "Toggle password visibility")
-                    }
-                },
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
             Button(
-                onClick = viewModel::login,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                enabled = !state.isLoading
-            ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Login ke Cloud", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Gunakan Mode Offline (Lewati)", style = MaterialTheme.typography.titleMedium)
+                Text("Gunakan Backup Lokal", style = MaterialTheme.typography.titleMedium)
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Data Anda tersimpan aman di perangkat ini dan tidak diunggah ke server.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
